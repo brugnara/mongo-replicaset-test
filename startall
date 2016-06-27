@@ -1,0 +1,63 @@
+# creo nodi
+
+docker-machine create -d virtualbox mongo-01 &
+docker-machine create -d virtualbox mongo-02 &
+docker-machine create -d virtualbox mongo-03 &
+
+wait
+
+node1=$(docker-machine ip mongo-01)
+node2=$(docker-machine ip mongo-02)
+node3=$(docker-machine ip mongo-03)
+
+eval $(docker-machine env mongo-01);
+
+docker rm -f mongo
+docker-machine ssh mongo-01 -- sudo rm -rf /data
+docker run \
+  --name mongo \
+  --restart=always \
+  -v /data:/data/db \
+  --hostname="node1" \
+  --add-host node1:$node1 \
+  --add-host node2:$node2 \
+  --add-host node3:$node3 \
+  -p 27017:27017 -d mongo \
+  --smallfiles \
+  --replSet "rs0"
+
+eval $(docker-machine env mongo-02);
+
+docker rm -f mongo
+docker-machine ssh mongo-02 -- sudo rm -rf /data
+docker run \
+  --name mongo \
+  --restart=always \
+  -v /data:/data/db \
+  --hostname="node2" \
+  --add-host node1:$node1 \
+  --add-host node2:$node2 \
+  --add-host node3:$node3 \
+  -p 27017:27017 -d mongo \
+  --smallfiles \
+  --replSet "rs0"
+
+eval $(docker-machine env mongo-03);
+
+docker rm -f mongo
+docker-machine ssh mongo-03 -- sudo rm -rf /data
+docker run \
+  --name mongo \
+  --restart=always \
+  -v /data:/data/db \
+  --hostname="node3" \
+  --add-host node1:$node1 \
+  --add-host node2:$node2 \
+  --add-host node3:$node3 \
+  -p 27017:27017 -d mongo \
+  --smallfiles \
+  --replSet "rs0"
+
+sleep 3
+
+mongo $node1 < replica_init.js
